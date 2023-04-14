@@ -3,10 +3,34 @@
 const net = require('net');
 const chalk = require('chalk');
 
+//------------------------------------------------------------------------------------------------------------------------------------
+// Utilities
+//------------------------------------------------------------------------------------------------------------------------------------
+function getTimeString(date) {
+	return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0') + ':' + String(date.getSeconds()).padStart(2, '0') + ':' + String(date.getMilliseconds()).padStart(3, '0');
+}
+
+function getDateString(date) {
+	const timeStr = getTimeString(date);
+
+	const dateStr = String(date.getFullYear()).padStart(2, '0') + '-' +
+		String(date.getMonth() + 1).padStart(2, '0') + '-' +
+		String(date.getDate()).padStart(2, '0') + 'T' + timeStr;
+
+	return dateStr;
+}
+
 function log(str) {
 	// console.log(str);
 }
 
+function log2(level, str) {
+	console.log(getDateString(new Date) + ' ' + str);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------
+// Application.
+//------------------------------------------------------------------------------------------------------------------------------------
 // Connects to external tunnel server process and forwards to local TCP server.
 function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 	const tunnelSocket = new net.Socket();
@@ -18,6 +42,7 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 	let socketId = 0;
 
 	tunnelSocket.connect(tunnelPort, tunnelHostname, () => {
+		tunnelSocket.setNoDelay(true);
 		console.log(chalk.yellow('Tunnel client: Connected to tunnel server'));
 
 		tunnelSocket.on('readable', () => {
@@ -44,12 +69,14 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 							socketId = data.readUint32LE(0);
 							packetState = 0;
 							log('Packet: Socket id: ' + socketId);
+							log2(0, 'Create new socket ' + socketId);
 
 							const clientSocket = new net.Socket();
 							const sockId = socketId;
 							// clientSocket.connect(7010, '127.0.0.1', () => {
 							clientSocket.connect(localPort, localHostname, () => {
-								log(chalk.cyan('Tunnel client: create socket to local server ' + sockId));
+								clientSocket.setNoDelay(true);
+								log2(0, chalk.cyan('Tunnel client: connected socket to local server ' + sockId));
 
 								clientSocket.on('data', (data) => {
 									log(sockId + ': ' + chalk.cyan('Client data: ' + data.length));
@@ -116,6 +143,7 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 							socketId = data.readUint32LE(0);
 							packetState = 0;
 							log('Packet: Socket id: ' + socketId);
+							log2(0, 'Closed socket ' + socketId);
 
 							if (clientSockets[socketId]) {
 								clientSockets[socketId].socket.destroy();
@@ -139,11 +167,11 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 						
 						if (data.length == remainingBytes) {
 							payloadSize -= remainingBytes;
-							log('Read ' + remainingBytes + ' bytes, have ' + payloadSize + ' bytes left to read.');
+							log2(0, 'Read ' + remainingBytes + ' bytes, have ' + payloadSize + ' bytes left to read.');
 
 							log('Write data to ' + socketId);
 
-							log(chalk.red(clientSockets[socketId].socket.pending));
+							//log(chalk.red(clientSockets[socketId].socket.pending));
 
 							if (clientSockets[socketId]) {
 								clientSockets[socketId].socket.write(data);
@@ -164,6 +192,15 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 
 		tunnelSocket.on('close', (hadError) => {
 			console.log(chalk.yellow('Tunnel client: close'));
+
+			for (const key in clientSockets) {
+				clientSockets[key].socket.end();
+			}
+			clientSockets = {};
+
+			setTimeout(() => {
+				startClient(tunnelPort, tunnelHostname, localPort, localHostname);
+			}, 1000);
 		});
 
 		tunnelSocket.on('error', (hadError) => {
@@ -175,10 +212,14 @@ function startClient(tunnelPort, tunnelHostname, localPort, localHostname) {
 		});
 	});
 
+	// TODO: Remove this event so not to trigger double error?
 	tunnelSocket.on('error', (err) => {
-		console.log(chalk.red('Outer error'));
+		console.log(chalk.red('Failed to connect error') + ' ' + tunnelSocket.readyState);
+		setTimeout(() => {
+			startClient(tunnelPort, tunnelHostname, localPort, localHostname);
+		}, 1000);
 	});
 }
 
-startClient(6969, '127.0.0.1', 7010, '25.36.58.201');
+startClient(6969, 'localhost', 7010, 'localhost');
 

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>LightWare PAS</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<script src="/lib/vue.global.js"></script>
+	<script src="/lib/vue-router.global.js"></script>
+	<script src="/compGeneral.js"></script>
+	<script src="/compBlank.js"></script>
+	<script src="/compLogin.js"></script>
+	<script src="/compFirmwareRegistry.js"></script>
+	<script src="/compPipelineEditor.js"></script>
+	<script src="/compTextEditor.js"></script>
+	<script src="/compNp1List.js"></script>
+	<script src="/nodeDefs.js"></script>
+	<script src="/nodeGraph.js"></script>
+	<script src="lib/vs/loader.js"></script>
+	
+	<link rel="stylesheet" href="app.css">
+	<link rel="stylesheet" href="lib/font-awesome/css/font-awesome.min.css">
+</head>
+
+<body>
+
+	<div id="app" style="display: flex; flex-direction: column; width: 100%; height: 100vh; overflow: hidden;">
+
+		<lwpas-message-modal v-if="modal.show" :info="modal"></lwpas-message-modal>
+		
+		<!-- Title -->
+		<div class="header" style="display: flex; flex-direction: column;">
+			<div style="display: flex; align-items: center; padding:10px 10px 10px 16px">
+				<img src="images/lightwareLogoSmall.png">
+				<div class="title">PAS</div>
+				
+				<div style="flex:1"></div>
+
+				<template v-if="user">
+					<div class="nav-container" style="display: flex; justify-content: center">
+						
+						<div v-for="item in nav" class="nav-item" @click="onNav(item)">
+							{{ item.name }}<i v-if="item.children" class="fa fa-chevron-down" style="font-size: 10px; padding: 0px 0px 0px 10px; color: rgb(200, 200, 200)"></i>
+
+							<div v-if="item.children" class="nav-item-sub">
+								<div v-for="subItem in item.children" class="nav-item-sub-item" @click="onNav(subItem)">{{ subItem.name }}</div>
+							</div>
+
+						</div>
+
+					</div>
+				
+					<!-- <div v-for="client in globalChannel.data.clients" class="client-circle" style="margin-left:10px">{{ client.shortName }}</div> -->
+					<div class="client-circle" style="margin-left:10px">{{ user.shortName }}</div>
+				</template>
+			</div>
+		</div>
+
+		<!-- Main view -->
+		<div style="display: flex; flex-direction: row; flex: 1; min-height: 0px;">
+
+			<template v-if="!user">
+				<div v-if="attemptingLogin" class="tool-container" style="display: flex; flex-direction: column; flex: 1; align-items: center; justify-content: center">
+					<div class="tool-panel">
+						<h1>Attempting login...</h1>
+					</div>
+				</div>
+				<lwpas-login v-else></lwpas-login>
+			</template>
+			<template v-else>
+				<router-view></router-view>
+			</template>
+
+		</div>
+
+		<!-- Status bar -->
+		<div class="status-bar">
+
+			<!-- <div v-if="websocketConnection == 'disconnected'" class="info-block" style="background-color: rgb(223, 50, 50);">
+				<p>Server: Disconnected</p>
+			</div>
+			<div v-if="websocketConnection == 'connected'" class="info-block" style="background-color: rgb(139, 237, 79);">
+				<p>Server: Connected</p>
+			</div>
+			<div v-if="websocketConnection == 'connecting'" class="info-block" style="background-color: rgb(131, 131, 73);">
+				<p>Server: Connecting...</p>
+			</div> -->
+			<div style="flex: 1; padding: 0px 10px">
+				<p>{{ lastMessage }}</p>
+			</div>
+			<div style="padding: 0px 10px">
+				<p>V{{ localVersion }}</p>
+			</div>
+
+		</div>
+
+	</div>
+
+	<script src="/app.js"></script>
+
+</body>
+</html>

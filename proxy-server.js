@@ -3,10 +3,34 @@
 const net = require('net');
 const chalk = require('chalk');
 
+//------------------------------------------------------------------------------------------------------------------------------------
+// Utilities
+//------------------------------------------------------------------------------------------------------------------------------------
+function getTimeString(date) {
+	return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0') + ':' + String(date.getSeconds()).padStart(2, '0') + ':' + String(date.getMilliseconds()).padStart(3, '0');
+}
+
+function getDateString(date) {
+	const timeStr = getTimeString(date);
+
+	const dateStr = String(date.getFullYear()).padStart(2, '0') + '-' +
+		String(date.getMonth() + 1).padStart(2, '0') + '-' +
+		String(date.getDate()).padStart(2, '0') + 'T' + timeStr;
+
+	return dateStr;
+}
+
 function log(str) {
 	// console.log(str);
 }
 
+function log2(level, str) {
+	console.log(getDateString(new Date) + ' ' + str);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------
+// Application.
+//------------------------------------------------------------------------------------------------------------------------------------
 // Waits for external tunnel client connections and forwards to connected client process.
 function startServer(tunnelPort, listenPort) {
 	console.log('Starting proxy client');
@@ -25,11 +49,12 @@ function startServer(tunnelPort, listenPort) {
 
 	const tunnelServer = net.createServer();
 	
-	tunnelServer.listen(tunnelPort, '127.0.0.1', () => {
+	tunnelServer.listen(tunnelPort, () => {
 		console.log(chalk.green('Tunnel server running...'));
 	});
 
 	tunnelServer.on('connection', (socket) => {
+		socket.setNoDelay(true);
 		log(chalk.green('Tunnel server: new connection'));
 		tunnelSocket = socket;
 
@@ -93,9 +118,8 @@ function startServer(tunnelPort, listenPort) {
 						
 						if (data.length == remainingBytes) {
 							payloadSize -= remainingBytes;
-							log(chalk.green('Read ' + remainingBytes + ' bytes, have ' + payloadSize + ' bytes left to read.'));
+							log2(0, chalk.green('Read ' + remainingBytes + ' bytes, have ' + payloadSize + ' bytes left to read.'));
 
-							log(chalk.green('Write data to ' + socketId));
 							if (clientSockets[socketId]) {
 								clientSockets[socketId].socket.write(data);
 							}
@@ -132,15 +156,17 @@ function startServer(tunnelPort, listenPort) {
 	//------------------------------------------------------------------------------------------------------------------------------------
 	const server = net.createServer();
 
-	server.listen(listenPort, '127.0.0.1', () => {
+	server.listen(listenPort, () => {
 		console.log(chalk.blue('Client TCP server running...'));
 	});
 
 	server.on('connection', (socket) => {
+		socket.setNoDelay(true);
+
 		const socketId = globalSocketId;
 		++globalSocketId;
 
-		log(socketId + ': ' + chalk.blue('New TCP client'));
+		log2(0, socketId + ': ' + chalk.blue('New TCP client'));
 
 		clientSockets[socketId] = {
 			id: socketId,
@@ -157,7 +183,7 @@ function startServer(tunnelPort, listenPort) {
 		// console.log(Object.entries(clientSockets).length);
 
 		socket.on('data', (data) => {
-			log(socketId + ': ' + chalk.blue('Client data: ' + data.length));
+			log2(0, socketId + ': ' + chalk.blue('Client data: ' + data.length));
 
 			let buffer = Buffer.alloc(12);
 			buffer.writeUInt32LE(1, 0);
@@ -168,7 +194,7 @@ function startServer(tunnelPort, listenPort) {
 		});
 
 		socket.on('close', (hadError) => {
-			log(socketId + ': ' + chalk.blue('Client: close'));
+			log2(0, socketId + ': ' + chalk.blue('Client: close'));
 
 			if (clientSockets[socketId]) {
 				clientSockets[socketId].socket.destroy();
